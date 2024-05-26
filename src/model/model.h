@@ -96,8 +96,6 @@ typedef struct Animation
 int  loadAnimationGLTF(Animation* animation, cgltf_animation* gltf_animation, const cgltf_data* data);
 void destroyAnimation(Animation* animation);
 
-Animation* loadAnimationsGLTF(cgltf_data* data, size_t* count);
-
 int  getAnimationTransform(const Animation* animation, size_t index, mat4* transform);
 void getAnimationJointTransforms(const Model* model, const Animation* animation, mat4* transforms);
 void getBindPose(const Model* model, mat4* out);
@@ -105,8 +103,17 @@ void getBindPose(const Model* model, mat4* out);
 void resetAnimation(Animation* animation);
 void tickAnimation(Animation* animation, float deltatime);
 
+typedef struct
+{
+    Animation* data;
+    size_t count;
+} AnimationList;
+
+int  loadAnimationsGLTF(AnimationList* list, cgltf_data* data);
+void destroyAnimationList(AnimationList* list);
+
 // ----------------------------------------------------------------
-// model + skin
+// model
 // ----------------------------------------------------------------
 struct Model
 {
@@ -128,15 +135,15 @@ struct Model
     size_t joint_count;
 };
 
-int  loadSkinGLTF(Model* model, cgltf_skin* skin);
-void destroySkin(Model* model);
-
 int  loadModelGLTF(Model* model, cgltf_data* data, const char* dir);
 void destroyModel(Model* model);
 
 
 int uploadMesh(Mesh* mesh);
+int uploadModel(Model* model);
 void renderModel(const Model* model, const Animation* animation, IgnisShader shader);
 void renderModelSkinned(const Model* model, const Animation* animation, IgnisShader shader);
+
+int loadGLTF(const char* dir, const char* filename, Model* model, AnimationList* animations);
 
 #endif // !MODEL_H

@@ -3,39 +3,42 @@
 
 #define NK_SHADER_VERSION "#version 330 core\n"
 
-NK_API void
-nk_glfw3_device_create(struct nk_glfw_device* dev)
+static const char* vertex_shader =
+NK_SHADER_VERSION
+"layout (location = 0) in vec2 Position;\n"
+"layout (location = 1) in vec2 TexCoord;\n"
+"layout (location = 2) in vec4 Color;\n"
+"out vec2 Frag_UV;\n"
+"out vec4 Frag_Color;\n"
+"uniform mat4 ProjMtx;\n"
+"void main() {\n"
+"   Frag_UV = TexCoord;\n"
+"   Frag_Color = Color;\n"
+"   gl_Position = ProjMtx * vec4(Position.xy, 0, 1);\n"
+"}\n";
+static const char* fragment_shader =
+NK_SHADER_VERSION
+"precision mediump float;\n"
+"uniform sampler2D Texture;\n"
+"in vec2 Frag_UV;\n"
+"in vec4 Frag_Color;\n"
+"out vec4 Out_Color;\n"
+"void main(){\n"
+"   Out_Color = Frag_Color * texture(Texture, Frag_UV.st);\n"
+"}\n";
+
+NK_API int
+nk_glfw3_init(struct nk_glfw* glfw, MinimalWindow* win)
 {
-    nk_buffer_init_default(&dev->cmds);
+    glfw->win = win;
 
-    static const char* vertex_shader =
-        NK_SHADER_VERSION
-        "layout (location = 0) in vec2 Position;\n"
-        "layout (location = 1) in vec2 TexCoord;\n"
-        "layout (location = 2) in vec4 Color;\n"
-        "out vec2 Frag_UV;\n"
-        "out vec4 Frag_Color;\n"
-        "uniform mat4 ProjMtx;\n"
-        "void main() {\n"
-        "   Frag_UV = TexCoord;\n"
-        "   Frag_Color = Color;\n"
-        "   gl_Position = ProjMtx * vec4(Position.xy, 0, 1);\n"
-        "}\n";
-    static const char* fragment_shader =
-        NK_SHADER_VERSION
-        "precision mediump float;\n"
-        "uniform sampler2D Texture;\n"
-        "in vec2 Frag_UV;\n"
-        "in vec4 Frag_Color;\n"
-        "out vec4 Out_Color;\n"
-        "void main(){\n"
-        "   Out_Color = Frag_Color * texture(Texture, Frag_UV.st);\n"
-        "}\n";
+    nk_init_default(&glfw->ctx, 0);
+    nk_buffer_init_default(&glfw->cmds);
 
-    dev->prog = ignisCreateShaderSrcvf(vertex_shader, fragment_shader);
+    glfw->prog = ignisCreateShaderSrcvf(vertex_shader, fragment_shader);
 
-    dev->uniform_tex = ignisGetUniformLocation(dev->prog, "Texture");
-    dev->uniform_proj = ignisGetUniformLocation(dev->prog, "ProjMtx");
+    glfw->uniform_tex = ignisGetUniformLocation(glfw->prog, "Texture");
+    glfw->uniform_proj = ignisGetUniformLocation(glfw->prog, "ProjMtx");
 
     /* buffer setup */
     IgnisBufferElement layout[] = {
@@ -44,40 +47,44 @@ nk_glfw3_device_create(struct nk_glfw_device* dev)
        { IGNIS_UINT8, 4, GL_TRUE }
     };
 
-    ignisGenerateVertexArray(&dev->vao, 2);
-    ignisLoadArrayBuffer(&dev->vao, 0, MAX_VERTEX_BUFFER, NULL, IGNIS_STREAM_DRAW);
-    ignisSetVertexLayout(&dev->vao, 0, layout, 3);
-    ignisLoadElementBuffer(&dev->vao, 1, NULL, MAX_ELEMENT_BUFFER, IGNIS_STREAM_DRAW);
-}
+    ignisGenerateVertexArray(&glfw->vao, 2);
+    ignisLoadArrayBuffer(&glfw->vao, 0, MAX_VERTEX_BUFFER, NULL, IGNIS_STREAM_DRAW);
+    ignisSetVertexLayout(&glfw->vao, 0, layout, 3);
+    ignisLoadElementBuffer(&glfw->vao, 1, NULL, MAX_ELEMENT_BUFFER, IGNIS_STREAM_DRAW);
 
-NK_API void
-nk_glfw3_device_destroy(struct nk_glfw_device* dev)
-{
-    ignisDeleteShader(dev->prog);
-    ignisDeleteVertexArray(&dev->vao);
-    nk_buffer_free(&dev->cmds);
-}
+    /* fill convert configuration */
+    static const struct nk_draw_vertex_layout_element vertex_layout[] = {
+        {NK_VERTEX_POSITION, NK_FORMAT_FLOAT,    0},
+        {NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT,    8},
+        {NK_VERTEX_COLOR,    NK_FORMAT_R8G8B8A8, 16},
+        {NK_VERTEX_LAYOUT_END}
+    };
 
-NK_API struct nk_context*
-nk_glfw3_init(struct nk_glfw* glfw, MinimalWindow* win)
-{
-    glfw->win = win;
+    glfw->config.vertex_layout = vertex_layout;
+    glfw->config.vertex_size = 20;
+    glfw->config.vertex_alignment = 4;
+    glfw->config.tex_null.texture = nk_handle_id(IGNIS_DEFAULT_TEXTURE2D.name);
+    glfw->config.tex_null.uv = nk_vec2(0.f, 0.f);
+    glfw->config.circle_segment_count = 22;
+    glfw->config.curve_segment_count = 22;
+    glfw->config.arc_segment_count = 22;
+    glfw->config.global_alpha = 1.0f;
+    glfw->config.shape_AA = nk_true;
+    glfw->config.line_AA = nk_true;
 
-    nk_init_default(&glfw->ctx, 0);
-    nk_glfw3_device_create(&glfw->ogl);
-
-    glfw->ogl.tex_null.texture = nk_handle_id(IGNIS_DEFAULT_TEXTURE2D.name);
-    glfw->ogl.tex_null.uv = nk_vec2(0.f, 0.f);
-
-    return &glfw->ctx;
+    return IGNIS_SUCCESS;
 }
 
 NK_API
 void nk_glfw3_shutdown(struct nk_glfw* glfw)
 {
     ignisFontAtlasClear(&glfw->atlas);
+
+    ignisDeleteShader(glfw->prog);
+    ignisDeleteVertexArray(&glfw->vao);
+    nk_buffer_free(&glfw->cmds);
+
     nk_free(&glfw->ctx);
-    nk_glfw3_device_destroy(&glfw->ogl);
 }
 
 static struct nk_font user_font;
@@ -177,71 +184,33 @@ nk_glfw3_new_frame(struct nk_glfw* glfw, float deltatime)
 
     nk_input_update_mouse(in, pos, glfw->scroll);
     glfw->scroll = nk_vec2(0, 0);
-    
-    /*
-    if (glfw->scroll.x != 0.0f || glfw->scroll.y != 0.0f)
-        MINIMAL_INFO("Scroll: %f, %f", glfw->scroll.x, glfw->scroll.y);
-    */
 }
 
 NK_API void
-nk_glfw3_render(struct nk_glfw* glfw)
+nk_glfw3_render(struct nk_glfw* glfw, const float* proj)
 {
-    struct nk_glfw_device* dev = &glfw->ogl;
-
     /* convert from command queue into draw list and draw to screen */
     /* allocate vertex and element buffer */
-    ignisBindVertexArray(&dev->vao);
+    ignisBindVertexArray(&glfw->vao);
 
     /* load draw vertices & elements directly into vertex + element buffer */
-    void* vertices = ignisMapBuffer(&dev->vao.buffers[0], GL_WRITE_ONLY);
-    void* elements = ignisMapBuffer(&dev->vao.buffers[1], GL_WRITE_ONLY);
+    void* vertices = ignisMapBuffer(&glfw->vao.buffers[0], GL_WRITE_ONLY);
+    void* elements = ignisMapBuffer(&glfw->vao.buffers[1], GL_WRITE_ONLY);
     {
-        /* fill convert configuration */
-        static const struct nk_draw_vertex_layout_element vertex_layout[] = {
-            {NK_VERTEX_POSITION, NK_FORMAT_FLOAT,    0},
-            {NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT,    8},
-            {NK_VERTEX_COLOR,    NK_FORMAT_R8G8B8A8, 16},
-            {NK_VERTEX_LAYOUT_END}
-        };
-
-        struct nk_convert_config config = {
-            .vertex_layout = vertex_layout,
-            .vertex_size = 20,
-            .vertex_alignment = 4,
-            .tex_null = dev->tex_null,
-            .circle_segment_count = 22,
-            .curve_segment_count = 22,
-            .arc_segment_count = 22,
-            .global_alpha = 1.0f,
-            .shape_AA = nk_true,
-            .line_AA = nk_true
-        };
-
         /* setup buffers to load vertices and elements */
         struct nk_buffer vbuf, ebuf;
         nk_buffer_init_fixed(&vbuf, vertices, (size_t)MAX_VERTEX_BUFFER);
         nk_buffer_init_fixed(&ebuf, elements, (size_t)MAX_ELEMENT_BUFFER);
-        nk_convert(&glfw->ctx, &dev->cmds, &vbuf, &ebuf, &config);
+        nk_convert(&glfw->ctx, &glfw->cmds, &vbuf, &ebuf, &glfw->config);
     }
-    ignisUnmapBuffer(&dev->vao.buffers[0]);
-    ignisUnmapBuffer(&dev->vao.buffers[1]);
-
+    ignisUnmapBuffer(&glfw->vao.buffers[0]);
+    ignisUnmapBuffer(&glfw->vao.buffers[1]);
 
     int width, height;
     minimalGetFramebufferSize(glfw->win, &width, &height);
 
     struct nk_vec2 fb_scale;
     minimalGetWindowContentScale(glfw->win, &fb_scale.x, &fb_scale.y);
-
-    GLfloat ortho[4][4] = {
-        {2.0f, 0.0f, 0.0f, 0.0f},
-        {0.0f,-2.0f, 0.0f, 0.0f},
-        {0.0f, 0.0f,-1.0f, 0.0f},
-        {-1.0f,1.0f, 0.0f, 1.0f},
-    };
-    ortho[0][0] /= (GLfloat)width;
-    ortho[1][1] /= (GLfloat)height;
 
     /* setup global state */
     glEnable(GL_BLEND);
@@ -255,15 +224,15 @@ nk_glfw3_render(struct nk_glfw* glfw)
     glViewport(0, 0, (GLsizei)width, (GLsizei)height);
 
     /* setup program */
-    ignisUseShader(dev->prog);
-    ignisSetUniformil(dev->prog, dev->uniform_tex, 0);
-    ignisSetUniformMat4l(dev->prog, dev->uniform_proj, 1, &ortho[0][0]);
+    ignisUseShader(glfw->prog);
+    ignisSetUniformil(glfw->prog, glfw->uniform_tex, 0);
+    ignisSetUniformMat4l(glfw->prog, glfw->uniform_proj, 1, proj);
 
 
     /* iterate over and execute each draw command */
     nk_size offset = 0;
     const struct nk_draw_command* cmd;
-    nk_draw_foreach(cmd, &glfw->ctx, &dev->cmds)
+    nk_draw_foreach(cmd, &glfw->ctx, &glfw->cmds)
     {
         if (!cmd->elem_count) continue;
         glBindTexture(GL_TEXTURE_2D, (GLuint)cmd->texture.id);
@@ -278,7 +247,7 @@ nk_glfw3_render(struct nk_glfw* glfw)
         offset += cmd->elem_count * sizeof(nk_draw_index);
     }
     nk_clear(&glfw->ctx);
-    nk_buffer_clear(&dev->cmds);
+    nk_buffer_clear(&glfw->cmds);
 
     /* default OpenGL state */
     glUseProgram(0);

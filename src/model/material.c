@@ -10,6 +10,17 @@ int loadDefaultMaterial(Material* material)
     return IGNIS_SUCCESS;
 }
 
+void destroyMaterial(Material* material)
+{
+    if (!ignisIsDefaultTexture2D(material->base_texture)) ignisDeleteTexture2D(&material->base_texture);
+    if (!ignisIsDefaultTexture2D(material->normal))       ignisDeleteTexture2D(&material->normal);
+    if (!ignisIsDefaultTexture2D(material->occlusion))    ignisDeleteTexture2D(&material->occlusion);
+    if (!ignisIsDefaultTexture2D(material->emmisive))     ignisDeleteTexture2D(&material->emmisive);
+}
+
+// ----------------------------------------------------------------
+// GLTF
+// ----------------------------------------------------------------
 static int loadTextureBase64(IgnisTexture2D* texture, char* buffer, size_t len, IgnisTextureConfig* config)
 {
     if (len % 4 != 0)
@@ -35,7 +46,7 @@ static int loadTextureBase64(IgnisTexture2D* texture, char* buffer, size_t len, 
     return result;
 }
 
-int loadTextureGLTF(IgnisTexture2D* texture, cgltf_texture* gltf_texture, const char* dir)
+static int loadTextureGLTF(IgnisTexture2D* texture, cgltf_texture* gltf_texture, const char* dir)
 {
     // load texture config
     IgnisTextureConfig config = IGNIS_DEFAULT_CONFIG;
@@ -164,12 +175,4 @@ int loadMaterialGLTF(Material* material, const cgltf_material* gltf_material, co
     // Other possible materials not supported by raylib pipeline:
     // has_clearcoat, has_transmission, has_volume, has_ior, has specular, has_sheen
     return IGNIS_SUCCESS;
-}
-
-void destroyMaterial(Material* material)
-{
-    if (!ignisIsDefaultTexture2D(material->base_texture)) ignisDeleteTexture2D(&material->base_texture);
-    if (!ignisIsDefaultTexture2D(material->normal))       ignisDeleteTexture2D(&material->normal);
-    if (!ignisIsDefaultTexture2D(material->occlusion))    ignisDeleteTexture2D(&material->occlusion);
-    if (!ignisIsDefaultTexture2D(material->emmisive))     ignisDeleteTexture2D(&material->emmisive);
 }

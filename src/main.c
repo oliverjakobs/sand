@@ -28,52 +28,12 @@ float camera_zoom = 4.0f;
 IgnisShader shader_model;
 IgnisShader shader_skinned;
 
-Model model = { 0 };
-Animation* animations = NULL;
-size_t animation_count = 0;
-size_t animation_index = 0;
-
 int paused = 0;
 
-void loadGLTF(const char* dir, const char* filename)
-{
-    size_t size = 0;
-    const char* path = ignisTextFormat("%s/%s", dir, filename);
-    char* filedata = ignisReadFile(path, &size);
-
-    if (!filedata) return;
-
-    cgltf_options options = { 0 };
-    cgltf_data* data = NULL;
-    cgltf_result result = cgltf_parse(&options, filedata, size, &data);
-    if (result != cgltf_result_success)
-    {
-        IGNIS_ERROR("MODEL: [%s] Failed to load glTF data", path);
-        free(filedata);
-        return;
-    }
-
-    MINIMAL_INFO("    > Meshes count: %i", data->meshes_count);
-    MINIMAL_INFO("    > Materials count: %i", data->materials_count);
-    MINIMAL_INFO("    > Buffers count: %i", data->buffers_count);
-    MINIMAL_INFO("    > Images count: %i", data->images_count);
-    MINIMAL_INFO("    > Textures count: %i", data->textures_count);
-
-    result = cgltf_load_buffers(&options, data, path);
-    if (result != cgltf_result_success)
-    {
-        IGNIS_ERROR("MODEL: [%s] Failed to load mesh/material buffers", path);
-        cgltf_free(data);
-        free(filedata);
-        return;
-    }
-
-    loadModelGLTF(&model, data, dir);
-    animations = loadAnimationsGLTF(data, &animation_count);
-
-    cgltf_free(data);
-    free(filedata);
-}
+Model model = { 0 };
+AnimationList animations = { 0 };
+size_t animation_count = 0;
+size_t animation_index = 0;
 
 static void setViewport(float w, float h)
 {
@@ -99,6 +59,8 @@ uint8_t onLoad(const char* title, int32_t x, int32_t y, uint32_t w, uint32_t h)
         MINIMAL_ERROR("[App] Failed to create Minimal window");
         return MINIMAL_FAIL;
     }
+
+    minimalSwapInterval(0);
 
     /* ingis initialization */
     ignisSetLogCallback(ignisLogCallback);
@@ -140,10 +102,10 @@ uint8_t onLoad(const char* title, int32_t x, int32_t y, uint32_t w, uint32_t h)
     //loadModelGLTF(&model, &animation, "res/models/", "RiggedSimple.gltf");
     //loadModelGLTF(&model, &animation, "res/models/", "RiggedFigure.gltf");
     //loadModelGLTF(&model, &animation, "res/models/", "BoxAnimated.gltf");
-    //loadModelGLTF(&model, &animation, "res/models/", "CesiumMilkTruck.gltf");
-    loadGLTF("res/models/", "Fox.glb");
+    loadGLTF("res/models/", "CesiumMilkTruck.gltf", &model, &animations);
+    //loadGLTF("res/models/", "Fox.glb");
 
-    for (int i = 0; i < model.mesh_count; i++) uploadMesh(&model.meshes[i]);
+    uploadModel(&model);
 
     return MINIMAL_OK;
 }
@@ -151,8 +113,7 @@ uint8_t onLoad(const char* title, int32_t x, int32_t y, uint32_t w, uint32_t h)
 void onDestroy()
 {
     destroyModel(&model);
-    for (size_t i = 0; i < animation_count; ++i)
-        destroyAnimation(&animations[i]);
+    destroyAnimationList(&animations);
 
     ignisDeleteShader(shader_model);
     ignisDeleteShader(shader_skinned);
@@ -223,7 +184,7 @@ void onTick(void* context, const MinimalFrameData* framedata)
 
     if (!paused)
     {
-        tickAnimation(&animations[animation_index], framedata->deltatime);
+        tickAnimation(&animations.data[animation_index], framedata->deltatime);
     }
 
     //mat4 model = mat4_rotation((vec3) { 0.5f, 1.0f, 0.0f }, (float)glfwGetTime());
@@ -245,13 +206,13 @@ void onTick(void* context, const MinimalFrameData* framedata)
     {
         ignisSetUniformMat4(shader_skinned, "proj", 1, proj.v[0]);
         ignisSetUniformMat4(shader_skinned, "view", 1, view.v[0]);
-        renderModelSkinned(&model, &animations[animation_index], shader_skinned);
+        renderModelSkinned(&model, &animations.data[animation_index], shader_skinned);
     }
     else
     {
         ignisSetUniformMat4(shader_model, "proj", 1, proj.v[0]);
         ignisSetUniformMat4(shader_model, "view", 1, view.v[0]);
-        renderModel(&model, &animations[animation_index], shader_model);
+        renderModel(&model, &animations.data[animation_index], shader_model);
     }
 
     mat4 view_proj = mat4_multiply(proj, view);
@@ -270,13 +231,10 @@ void onTick(void* context, const MinimalFrameData* framedata)
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     // render debug info
-
     nk_glfw3_new_frame(&glfw, framedata->deltatime);
 
     struct nk_context* ctx = &glfw.ctx;
-    if (nk_begin(ctx, "Debug", nk_rect(50, 50, 230, 250),
-        NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE | NK_WINDOW_SCROLL_AUTO_HIDE |
-        NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE | NK_WINDOW_CLOSABLE))
+    if (nk_begin(ctx, "Debug", nk_rect(0, 0, 180, 110), 0))
     {
         nk_layout_row_dynamic(ctx, 20, 1);
         nk_labelf(ctx, NK_TEXT_LEFT, "Fps: %d", framedata->fps);
@@ -284,13 +242,13 @@ void onTick(void* context, const MinimalFrameData* framedata)
         nk_layout_row_dynamic(ctx, 20, 1);
         nk_labelf(ctx, NK_TEXT_LEFT, "Current animation:  %d", animation_index);
         nk_layout_row_dynamic(ctx, 20, 1);
-        nk_labelf(ctx, NK_TEXT_LEFT, "Animation Duration: %4.2f", animations[animation_index].duration);
+        nk_labelf(ctx, NK_TEXT_LEFT, "Animation Duration: %4.2f", animations.data[animation_index].duration);
         nk_layout_row_dynamic(ctx, 20, 1);
-        nk_labelf(ctx, NK_TEXT_LEFT, "Animation Time:     %4.2f", animations[animation_index].time);
+        nk_labelf(ctx, NK_TEXT_LEFT, "Animation Time:     %4.2f", animations.data[animation_index].time);
     }
     nk_end(ctx);
 
-    nk_glfw3_render(&glfw);
+    nk_glfw3_render(&glfw, screen_projection.v[0]);
 
     minimalSwapBuffers(window);
 }

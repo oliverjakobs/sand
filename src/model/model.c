@@ -38,7 +38,7 @@ uint32_t getJointIndex(const cgltf_node* target, const cgltf_skin* skin, uint32_
 // ----------------------------------------------------------------
 // skin
 // ----------------------------------------------------------------
-int loadSkinGLTF(Model* model, cgltf_skin* skin)
+static int loadSkinGLTF(Model* model, cgltf_skin* skin)
 {
     model->joint_count = skin->joints_count;
     model->joints = malloc(skin->joints_count * sizeof(uint32_t));
@@ -58,7 +58,7 @@ int loadSkinGLTF(Model* model, cgltf_skin* skin)
     return IGNIS_SUCCESS;
 }
 
-void destroySkin(Model* model)
+static void destroySkin(Model* model)
 {
     if (model->joints) free(model->joints);
     if (model->joint_locals) free(model->joint_locals);
@@ -70,7 +70,6 @@ void destroySkin(Model* model)
 // ----------------------------------------------------------------
 int loadModelGLTF(Model* model, cgltf_data* data, const char* dir)
 {
-
     // count primitives
     model->mesh_count = 0;
     for (size_t i = 0; i < data->meshes_count; ++i)
@@ -162,22 +161,72 @@ void destroyModel(Model* model)
     free(model->materials);
 }
 
-Animation* loadAnimationsGLTF(cgltf_data* data, size_t* count)
+int loadAnimationsGLTF(AnimationList* list, cgltf_data* data)
 {
-    if (!data->animations_count) return NULL;
+    if (!data->animations_count) return IGNIS_FAILURE;
 
     Animation* animations = malloc(data->animations_count * sizeof(Animation));
-
-    if (!animations) return NULL;
-
-    *count = data->animations_count;
+    if (!animations) return IGNIS_FAILURE;
 
     for (size_t i = 0; i < data->animations_count; ++i)
     {
         loadAnimationGLTF(&animations[i], &data->animations[i], data);
     }
 
-    return animations;
+    list->data = animations;
+    list->count = data->animations_count;
+
+    return IGNIS_SUCCESS;
+}
+
+void destroyAnimationList(AnimationList* list)
+{
+    for (size_t i = 0; i < list->count; ++i)
+        destroyAnimation(&list->data[i]);
+
+    free(list->data);
+}
+
+int loadGLTF(const char* dir, const char* filename, Model* model, AnimationList* animations)
+{
+    size_t size = 0;
+    const char* path = ignisTextFormat("%s/%s", dir, filename);
+    char* filedata = ignisReadFile(path, &size);
+
+    if (!filedata) return IGNIS_FAILURE;
+
+    cgltf_options options = { 0 };
+    cgltf_data* data = NULL;
+    cgltf_result result = cgltf_parse(&options, filedata, size, &data);
+    if (result != cgltf_result_success)
+    {
+        IGNIS_ERROR("MODEL: [%s] Failed to load glTF data", path);
+        free(filedata);
+        return IGNIS_FAILURE;
+    }
+
+    MINIMAL_INFO("    > Meshes count: %i", data->meshes_count);
+    MINIMAL_INFO("    > Materials count: %i", data->materials_count);
+    MINIMAL_INFO("    > Buffers count: %i", data->buffers_count);
+    MINIMAL_INFO("    > Images count: %i", data->images_count);
+    MINIMAL_INFO("    > Textures count: %i", data->textures_count);
+
+    result = cgltf_load_buffers(&options, data, path);
+    if (result != cgltf_result_success)
+    {
+        IGNIS_ERROR("MODEL: [%s] Failed to load mesh/material buffers", path);
+        cgltf_free(data);
+        free(filedata);
+        return IGNIS_FAILURE;
+    }
+
+    loadModelGLTF(model, data, dir);
+    loadAnimationsGLTF(animations, data);
+
+    cgltf_free(data);
+    free(filedata);
+
+    return IGNIS_SUCCESS;
 }
 
 // ----------------------------------------------------------------
@@ -247,7 +296,13 @@ int uploadMesh(Mesh* mesh)
     if (mesh->indices)
         ignisLoadElementBuffer(&mesh->vao, 5, mesh->indices, mesh->element_count, IGNIS_STATIC_DRAW);
 
-    return 0;
+    return IGNIS_SUCCESS;
+}
+
+int uploadModel(Model* model)
+{
+    for (int i = 0; i < model->mesh_count; i++) uploadMesh(&model->meshes[i]);
+    return IGNIS_SUCCESS;
 }
 
 void bindMaterial(IgnisShader shader, const Material* material)

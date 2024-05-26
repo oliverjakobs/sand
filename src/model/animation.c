@@ -41,7 +41,7 @@ size_t getNodeIndex(const cgltf_node* target, const cgltf_data* data)
     return data->meshes_count;
 }
 
-int  loadAnimationGLTF(Animation* animation, cgltf_animation* gltf_animation, const cgltf_data* data)
+int loadAnimationGLTF(Animation* animation, cgltf_animation* gltf_animation, const cgltf_data* data)
 {
     animation->channel_count = data->skins_count ? data->skins[0].joints_count : data->meshes_count;
 
