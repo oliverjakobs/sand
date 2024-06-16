@@ -1,6 +1,7 @@
 #include <ignis/ignis.h>
 
 #include "math/math.h"
+#include "camera.h"
 #include "model/model.h"
 
 #include "nuklear_glfw_gl3.h"
@@ -24,6 +25,9 @@ float camera_rotation = 0.0f;
 float camera_radius = 16.0f;
 float camera_speed = 1.0f;
 float camera_zoom = 4.0f;
+
+vec3 camera_pos = { 0 };
+Camera camera = { 0 };
 
 IgnisShader shader_model;
 IgnisShader shader_skinned;
@@ -85,6 +89,9 @@ uint8_t onLoad(const char* title, int32_t x, int32_t y, uint32_t w, uint32_t h)
 
     ignisPrimitivesRendererInit();
     setViewport((float)w, (float)h);
+
+    cameraCreateOrtho(&camera, 0.0f, 0.0f, (float)width, (float)height);
+    cameraSetCenterOrtho(&camera, (vec2) {0.0f, 0.0f});
 
     /* nuklear */
     nk_glfw3_init(&glfw, window);
@@ -177,19 +184,23 @@ void onTick(void* context, const MinimalFrameData* framedata)
     // clear screen
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    if (minimalKeyDown(MINIMAL_KEY_LEFT))  camera_rotation -= camera_speed * framedata->deltatime;
-    if (minimalKeyDown(MINIMAL_KEY_RIGHT)) camera_rotation += camera_speed * framedata->deltatime;
-    if (minimalKeyDown(MINIMAL_KEY_DOWN))  camera_radius += camera_zoom * framedata->deltatime;
-    if (minimalKeyDown(MINIMAL_KEY_UP))    camera_radius -= camera_zoom * framedata->deltatime;
+    /*
+    */
+    if (minimalKeyDown(MINIMAL_KEY_W)) camera_radius -= camera_zoom * framedata->deltatime;
+    if (minimalKeyDown(MINIMAL_KEY_A)) camera_rotation -= camera_speed * framedata->deltatime;
+    if (minimalKeyDown(MINIMAL_KEY_S)) camera_radius += camera_zoom * framedata->deltatime;
+    if (minimalKeyDown(MINIMAL_KEY_D)) camera_rotation += camera_speed * framedata->deltatime;
 
     if (!paused)
     {
         tickAnimation(&animations.data[animation_index], framedata->deltatime);
     }
 
+    float aspect = (float)width / (float)height;
     //mat4 model = mat4_rotation((vec3) { 0.5f, 1.0f, 0.0f }, (float)glfwGetTime());
     //mat4 view = mat4_translation(vec3_negate(camera_pos));
-    mat4 proj = mat4_perspective(degToRad(45.0f), (float)width / (float)height, 0.1f, 100.0f);
+    //mat4 proj = mat4_perspective(degToRad(45.0f), (float)width / (float)height, 0.1f, 100.0f);
+    mat4 proj = mat4_ortho(-6, 6, -4, 4, 0.1f, 100.0f);
 
     vec3 eye = {
         sinf(camera_rotation) * camera_radius,
@@ -199,6 +210,9 @@ void onTick(void* context, const MinimalFrameData* framedata)
     vec3 look_at = { 0.0f, 0.0f, 0.0f };
     vec3 up = { 0.0f, 1.0f, 0.0f };
     mat4 view = mat4_look_at(eye, look_at, up);
+
+    //mat4 proj = camera.proj;
+    //mat4 view = camera.view;
 
     glPolygonMode(GL_FRONT_AND_BACK, poly_mode ? GL_LINE : GL_FILL);
 
@@ -258,7 +272,7 @@ int main()
     minimalSetWindowHint(MINIMAL_HINT_CONTEXT_MAJOR_VERSION, 4);
     minimalSetWindowHint(MINIMAL_HINT_CONTEXT_MINOR_VERSION, 4);
 
-    if (onLoad("IgnisApp", 100, 100, 1280, 720))
+    if (onLoad("IgnisApp", 100, 100, 1200, 800))
     {
         minimalSetCurrentContext(window);
         minimalSetEventHandler(NULL, (MinimalEventCB)onEvent);

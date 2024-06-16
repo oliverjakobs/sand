@@ -25,6 +25,8 @@ mat4 mat4_rotation(vec3 axis, float angle); /* angle in radians */
 mat4 mat4_translation(vec3 v);
 mat4 mat4_scale(vec3 v);
 
+mat4 mat4_translate(mat4 mat, vec3 v);
+
 mat4 mat4_rotate_x(mat4 mat, float f);
 mat4 mat4_rotate_y(mat4 mat, float f);
 mat4 mat4_rotate_z(mat4 mat, float f);

@@ -75,28 +75,28 @@ mat4 mat4_ortho(float left, float right, float bottom, float top, float near, fl
 }
 
 
-mat4 mat4_look_at(vec3 eye, vec3 look_at, vec3 up)
+mat4 mat4_look_at(vec3 eye, vec3 target, vec3 up)
 {
-    vec3 forward = vec3_normalize(vec3_sub(look_at, eye));
-    vec3 side = vec3_normalize(vec3_cross(forward, up));
-    vec3 upward = vec3_cross(side, forward);
+    vec3 forward = vec3_normalize(vec3_sub(eye, target));
+    vec3 right = vec3_normalize(vec3_cross(up, forward));
+    vec3 upward = vec3_normalize(vec3_cross(forward, right));
 
     mat4 result;
-    result.v[0][0] = side.x;
+    result.v[0][0] = right.x;
     result.v[0][1] = upward.x;
-    result.v[0][2] = -forward.x;
+    result.v[0][2] = forward.x;
     result.v[0][3] = 0.0f;
-    result.v[1][0] = side.y;
+    result.v[1][0] = right.y;
     result.v[1][1] = upward.y;
-    result.v[1][2] = -forward.y;
+    result.v[1][2] = forward.y;
     result.v[1][3] = 0.0f;
-    result.v[2][0] = side.z;
+    result.v[2][0] = right.z;
     result.v[2][1] = upward.z;
-    result.v[2][2] = -forward.z;
+    result.v[2][2] = forward.z;
     result.v[2][3] = 0.0f;
-    result.v[3][0] = -vec3_dot(side, eye);
-    result.v[3][1] = -vec3_dot(upward, eye);
-    result.v[3][2] =  vec3_dot(forward, eye);
+    result.v[3][0] = -vec3_dot(eye, right);
+    result.v[3][1] = -vec3_dot(eye, upward);
+    result.v[3][2] = -vec3_dot(eye, forward);
     result.v[3][3] = 1.0f;
 
     return result;
@@ -139,6 +139,29 @@ mat4 mat4_translation(vec3 v)
     result.v[3][0] = v.x;
     result.v[3][1] = v.y;
     result.v[3][2] = v.z;
+    return result;
+}
+
+mat4 mat4_translate(mat4 mat, vec3 v)
+{
+    mat4 result;
+    result.v[0][0] = mat.v[0][0];
+    result.v[0][1] = mat.v[0][1];
+    result.v[0][2] = mat.v[0][2];
+    result.v[0][3] = mat.v[0][3];
+    result.v[1][0] = mat.v[1][0];
+    result.v[1][1] = mat.v[1][1];
+    result.v[1][2] = mat.v[1][2];
+    result.v[1][3] = mat.v[1][3];
+    result.v[2][0] = mat.v[2][0];
+    result.v[2][1] = mat.v[2][1];
+    result.v[2][2] = mat.v[2][2];
+    result.v[2][3] = mat.v[2][3];
+    result.v[3][0] = mat.v[3][0] + v.x;
+    result.v[3][1] = mat.v[3][1] + v.y;
+    result.v[3][2] = mat.v[3][2] + v.z;
+    result.v[3][3] = mat.v[3][3];
+
     return result;
 }
 
