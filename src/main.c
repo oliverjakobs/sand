@@ -196,11 +196,8 @@ void onTick(void* context, const MinimalFrameData* framedata)
         tickAnimation(&animations.data[animation_index], framedata->deltatime);
     }
 
-    float aspect = (float)width / (float)height;
-    //mat4 model = mat4_rotation((vec3) { 0.5f, 1.0f, 0.0f }, (float)glfwGetTime());
-    //mat4 view = mat4_translation(vec3_negate(camera_pos));
-    //mat4 proj = mat4_perspective(degToRad(45.0f), (float)width / (float)height, 0.1f, 100.0f);
-    mat4 proj = mat4_ortho(-6, 6, -4, 4, 0.1f, 100.0f);
+    mat4 proj = mat4_perspective(degToRad(45.0f), (float)width / (float)height, 0.1f, 100.0f);
+    //mat4 proj = mat4_ortho(-6, 6, -4, 4, 0.1f, 100.0f);
 
     vec3 eye = {
         sinf(camera_rotation) * camera_radius,
@@ -213,6 +210,20 @@ void onTick(void* context, const MinimalFrameData* framedata)
 
     //mat4 proj = camera.proj;
     //mat4 view = camera.view;
+
+
+    // render grid
+    mat4 view_proj = mat4_multiply(proj, view);
+    ignisPrimitivesRendererSetViewProjection(view_proj.v[0]);
+
+    for (float x = -10.0f; x <= 10.0f; x += 1.0f)
+    {
+        ignisPrimitives2DRenderLine(x, -10.0f, x, 10.0f, IGNIS_WHITE);
+        ignisPrimitives2DRenderLine(-10.0f, x, 10.0f, x, IGNIS_WHITE);
+    }
+
+    ignisPrimitivesRendererFlush();
+
 
     glPolygonMode(GL_FRONT_AND_BACK, poly_mode ? GL_LINE : GL_FILL);
 
@@ -228,19 +239,6 @@ void onTick(void* context, const MinimalFrameData* framedata)
         ignisSetUniformMat4(shader_model, "view", 1, view.v[0]);
         renderModel(&model, &animations.data[animation_index], shader_model);
     }
-
-    mat4 view_proj = mat4_multiply(proj, view);
-    ignisPrimitivesRendererSetViewProjection(view_proj.v[0]);
-
-    /*
-    for (int i = 0; i < model.mesh_count; ++i)
-    {
-        Mesh* mesh = &model.meshes[i];
-        ignisPrimitives3DRenderBox(&mesh->min.x, &mesh->max.x, IGNIS_WHITE);
-    }
-    */
-
-    ignisPrimitivesRendererFlush();
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
