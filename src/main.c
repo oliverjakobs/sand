@@ -87,7 +87,7 @@ uint8_t onLoad(const char* title, int32_t x, int32_t y, uint32_t w, uint32_t h)
 
     glEnable(GL_DEPTH_TEST);
 
-    ignisPrimitivesRendererInit();
+    ignisDebugRendererInit();
     setViewport((float)w, (float)h);
 
     cameraCreateOrtho(&camera, 0.0f, 0.0f, (float)width, (float)height);
@@ -128,7 +128,7 @@ void onDestroy()
     nk_glfw3_shutdown(&glfw);
 
     ignisFontRendererDestroy();
-    ignisPrimitivesRendererDestroy();
+    ignisDebugRendererDestroy();
 
     ignisDestroy();
 }
@@ -179,6 +179,8 @@ int onEvent(void *context, const MinimalEvent *e)
     return MINIMAL_OK;
 }
 
+
+
 void onTick(void* context, const MinimalFrameData* framedata)
 {
     // clear screen
@@ -214,15 +216,11 @@ void onTick(void* context, const MinimalFrameData* framedata)
 
     // render grid
     mat4 view_proj = mat4_multiply(proj, view);
-    ignisPrimitivesRendererSetViewProjection(view_proj.v[0]);
+    ignisDebugRendererSetViewProjection(view_proj.v[0]);
 
-    for (float x = -10.0f; x <= 10.0f; x += 1.0f)
-    {
-        ignisPrimitives2DRenderLine(x, -10.0f, x, 10.0f, IGNIS_WHITE);
-        ignisPrimitives2DRenderLine(-10.0f, x, 10.0f, x, IGNIS_WHITE);
-    }
+    ignisRenderDebugGrid(10.0f, 10.0f, 1.0f);
 
-    ignisPrimitivesRendererFlush();
+    ignisDebugRendererFlush();
 
 
     glPolygonMode(GL_FRONT_AND_BACK, poly_mode ? GL_LINE : GL_FILL);
