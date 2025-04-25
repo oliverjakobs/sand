@@ -155,6 +155,7 @@ float getChannelTransform(AnimationChannel* channel, float time, uint8_t comps, 
 
 int getAnimationTransform(const Animation* animation, size_t index, mat4* transform)
 {
+    if (animation == NULL) return IGNIS_FAILURE;
     if (index >= animation->channel_count) return IGNIS_FAILURE;
 
     AnimationChannel* translation = &animation->translations[index];

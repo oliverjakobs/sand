@@ -203,11 +203,11 @@ void onTick(void* context, const MinimalFrameData* framedata)
 
     vec3 eye = {
         sinf(camera_rotation) * camera_radius,
-        0.0f,
         cosf(camera_rotation) * camera_radius,
+        10.0f,
     };
     vec3 look_at = { 0.0f, 0.0f, 0.0f };
-    vec3 up = { 0.0f, 1.0f, 0.0f };
+    vec3 up = { 0.0f, 0.0f, 1.0f };
     mat4 view = mat4_look_at(eye, look_at, up);
 
     //mat4 proj = camera.proj;
